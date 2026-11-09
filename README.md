@@ -1,3 +1,16 @@
+
+# StudyAI — AI-Powered Study Assistant
+
+StudyAI is a smart learning platform that helps students study with AI tutoring, quizzes, flashcards, study plans, and progress tracking.
+
+## Live Website
+
+https://study-ai-tkyb.onrender.com
+
+## Dashboard Preview
+
+![StudyAI Dashboard](studyai-dashboard.png)
+
 # StudyAI — Pro Portfolio Upgrade
 
 A progressive upgrade to your **existing** working StudyAI project. Preserves your AI backend, existing lesson/quiz/flashcard logic and all ten navigation screens. Restores colorful learning mode buttons and study-tool cards.
