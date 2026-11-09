@@ -1,18 +1,30 @@
 {
-  "name": "ai-study-assistant",
-  "version": "1.0.0",
-  "description": "",
-  "main": "script.js",
+  "name": "studyai",
+  "version": "2.0.0",
+  "description": "AI-powered study assistant with lessons, quizzes, flashcards, analytics, and personalized learning.",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "education",
+    "artificial-intelligence",
+    "study-assistant",
+    "nodejs",
+    "express"
+  ],
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "openai": "^7.15.0"
+    "multer": "^2.5.0",
+    "openai": "^7.15.0",
+    "pdf-parse": "^2.4.5"
   }
 }

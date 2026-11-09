@@ -20,6 +20,8 @@ let uploadedImage = null;
 let currentStudyTopic = "";
 let currentLesson = "";
 
+let tutorHistory = [];
+
 let quizQuestions = [];
 let currentQuizIndex = 0;
 let quizCorrect = 0;
@@ -457,7 +459,7 @@ if (imageButton) {
                 <input
                     type="file"
                     id="imageInput"
-                    accept="image/*"
+accept="image/*,.pdf,application/pdf"
                 >
 
                 <div id="imagePreview"></div>
@@ -475,21 +477,97 @@ if (imageButton) {
 }
 
 
-function handleImageUpload(event) {
+async function handleImageUpload(event) {
 
-    const file =
-        event.target.files[0];
+    const file = event.target.files[0];
 
     if (!file) return;
 
-    const reader =
-        new FileReader();
+    const supportedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp"
+    ];
 
-    reader.onload =
-        function (e) {
+if (!supportedTypes.includes(file.type) && file.type !== "application/pdf") {
+        showMessage(
+            "📷 Image Not Supported",
+            "Please upload a JPG, PNG, GIF, or WebP image."
+        );
+        return;
+    }
 
-            uploadedImage =
-                e.target.result;
+if (file.type === "application/pdf") {
+  const formData = new FormData();
+  formData.append("pdf", file);
+
+  showMessage("📄 Reading PDF", "Please wait while your PDF is being read.");
+
+  try {
+    const response = await fetch("/api/pdf-study", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not read PDF.");
+    }
+topicInput.value = "Uploaded PDF Notes";
+
+window.uploadedPDFText = data.text || "";
+
+    showMessage("📄 PDF Ready", "Your PDF was read successfully.");
+  } catch (error) {
+    showMessage("❌ PDF Error", error.message);
+  }
+
+  return;
+}const reader = new FileReader();
+
+    reader.onload = function (e) {
+
+        const img = new Image();
+
+        img.onload = function () {
+
+            const maxDimension = 2000;
+
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxDimension || height > maxDimension) {
+
+                const scale = Math.min(
+                    maxDimension / width,
+                    maxDimension / height
+                );
+
+                width = Math.round(width * scale);
+                height = Math.round(height * scale);
+            }
+
+            const canvas = document.createElement("canvas");
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext("2d");
+
+            ctx.drawImage(
+                img,
+                0,
+                0,
+                width,
+                height
+            );
+
+            uploadedImage = canvas.toDataURL(
+                "image/jpeg",
+                0.9
+            );
 
             document.querySelector(
                 "#imagePreview"
@@ -569,6 +647,9 @@ function handleImageUpload(event) {
                 );
         };
 
+        img.src = e.target.result;
+    };
+
     reader.readAsDataURL(file);
 }
 
@@ -596,8 +677,12 @@ async function startStudying() {
         return;
     }
 
-    currentStudyTopic =
-        topic;
+
+currentStudyTopic =
+    topic;
+
+tutorHistory = [];
+
 
     saveHistory(
         topic,
@@ -625,9 +710,10 @@ async function startStudying() {
 
                     body: JSON.stringify({
 
-                        topic,
+    topic,
+pdfText: window.uploadedPDFText || "",
 
-                        learningStyle: {
+    learningStyle: {
 
                             readingLevel:
                                 "1st grade",
@@ -743,8 +829,16 @@ async function askTutor(message) {
                         lesson:
                             currentLesson,
 
-                        question:
-                            message,
+                        
+
+question:
+    message,
+
+history: tutorHistory,
+
+
+
+
 
                         rules: {
 
@@ -785,6 +879,19 @@ async function askTutor(message) {
                 "The AI could not answer."
             );
         }
+
+tutorHistory.push(
+    {
+        role: "user",
+        content: message
+    },
+    {
+        role: "assistant",
+        content: data.answer
+    }
+);
+
+tutorHistory = tutorHistory.slice(-20);
 
         responseBox.innerHTML = `
 
@@ -1057,6 +1164,7 @@ async function startQuiz() {
                     body: JSON.stringify({
 
                         topic,
+                        pdfText: window.uploadedPDFText || "",
 
                         questionCount:
                             10,
@@ -1187,9 +1295,11 @@ function displayQuizQuestion() {
 
 
     choices.forEach(
-        (option, index) => {
 
-            const letter =
+(option, index) => {
+
+    const letter =
+
                 String.fromCharCode(
                     65 + index
                 );
@@ -1993,9 +2103,13 @@ async function startImageStudy() {
         );
 
 
-        displayLesson(
-            currentLesson
-        );
+
+tutorHistory = [];
+
+displayLesson(
+    currentLesson
+);
+
 
 
     } catch (error) {
@@ -2469,44 +2583,17 @@ function createProgressChart() {
     `;
 
 
-    results.forEach(
-        item => {
-
-            html += `
-
-                <div class="chart-item">
-
-                    <div
-                        class="chart-bar"
-                        style="
-                            height:
-                            ${Math.max(
-                                10,
-                                item.score
-                            )}%;
-                        "
-                        title="${item.score}%"
-                    >
-
-                        <span>
-                            ${item.score}%
-                        </span>
-
-                    </div>
-
-                    <small>
-                        ${escapeHTML(
-                            item.topic
-                        )}
-                    </small>
-
+    results.forEach(item => {
+        const score = Math.max(0, Math.min(100, Number(item.score) || 0));
+        html += `
+            <div class="chart-item">
+                <div class="quiz-score-ring" style="--score:${score};" role="img" aria-label="${escapeHTML(item.topic)}: ${score} percent">
+                    <div class="quiz-score-ring-inner"><strong>${score}%</strong></div>
                 </div>
-
-            `;
-
-        }
-    );
-
+                <small title="${escapeHTML(item.topic)}">${escapeHTML(item.topic)}</small>
+            </div>
+        `;
+    });
 
     html += `
 
@@ -2607,6 +2694,179 @@ if (progressButton) {
     );
 }
 
+
+function getSmartAnalytics() {
+    const results = quizResults.slice().reverse();
+
+    if (results.length === 0) {
+        return `
+            <div class="goal-card">
+                <h3>🧠 Smart Learning Insights</h3>
+                <p>Take a quiz to unlock your learning insights!</p>
+            </div>
+        `;
+    }
+
+    const recent = results.slice(-5);
+    const previous = results.slice(-10, -5);
+
+    const average = items =>
+        items.length
+            ? items.reduce((sum, item) => sum + item.score, 0) / items.length
+            : 0;
+
+    const recentAverage = Math.round(average(recent));
+    const previousAverage = Math.round(average(previous));
+
+    let trend = "Not enough quizzes to show a trend yet.";
+
+    if (previous.length > 0) {
+        const difference = recentAverage - previousAverage;
+
+        if (difference > 0) {
+            trend = `📈 Your average score improved by ${difference} points!`;
+        } else if (difference < 0) {
+            trend = `📉 Your average score dropped by ${Math.abs(difference)} points.`;
+        } else {
+            trend = "➡️ Your average score stayed the same.";
+        }
+    }
+
+    return `
+        <div class="goal-card">
+            <h3>🧠 Smart Learning Insights</h3>
+
+            <p><strong>Recent quiz average:</strong> ${recentAverage}%</p>
+            <p><strong>Quizzes completed:</strong> ${results.length}</p>
+            <p>${trend}</p>
+        </div>
+    `;
+}
+
+function getWeakTopics() {
+    if (quizResults.length === 0) {
+        return `
+            <div class="goal-card">
+                <h3>🎯 Topics to Improve</h3>
+                <p>Take a quiz to find topics you need to practice.</p>
+            </div>
+        `;
+    }
+
+    const topics = {};
+
+    quizResults.forEach(item => {
+        const name = String(item.topic || "Unknown").trim();
+        const key = name.toLowerCase();
+
+        if (!topics[key]) {
+            topics[key] = {
+                name,
+                correct: 0,
+                total: 0
+            };
+        }
+
+        topics[key].correct += Number(item.correct) || 0;
+        topics[key].total += Number(item.total) || 0;
+    });
+
+    const weakTopics = Object.values(topics)
+        .filter(item => item.total > 0)
+        .map(item => ({
+            name: item.name,
+            score: Math.round(
+                (item.correct / item.total) * 100
+            )
+        }))
+        .filter(item => item.score < 70)
+        .sort((a, b) => a.score - b.score);
+
+    if (weakTopics.length === 0) {
+        return `
+            <div class="goal-card">
+                <h3>🎯 Topics to Improve</h3>
+                <p>Great work! No topics are below 70% right now.</p>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="goal-card">
+            <h3>🎯 Topics to Improve</h3>
+            <p>These topics have an average quiz score below 70%.</p>
+
+            ${weakTopics.map(item => `
+                <p>
+                    📚 <strong>${escapeHTML(item.name)}</strong>
+                    — ${item.score}%
+                </p>
+            `).join("")}
+        </div>
+    `;
+}
+
+function getStudyRecommendations() {
+    if (quizResults.length === 0) {
+        return `
+            <div class="goal-card">
+                <h3>💡 Study Recommendations</h3>
+                <p>Take a quiz to get personal study tips!</p>
+            </div>
+        `;
+    }
+
+    const topics = {};
+
+    quizResults.forEach(item => {
+        const name = String(item.topic || "Unknown").trim();
+        const key = name.toLowerCase();
+
+        if (!topics[key]) {
+            topics[key] = {
+                name,
+                correct: 0,
+                total: 0
+            };
+        }
+
+        topics[key].correct += Number(item.correct) || 0;
+        topics[key].total += Number(item.total) || 0;
+    });
+
+    const weakest = Object.values(topics)
+        .filter(item => item.total > 0)
+        .map(item => ({
+            name: item.name,
+            score: Math.round(item.correct / item.total * 100)
+        }))
+        .filter(item => item.score < 70)
+        .sort((a, b) => a.score - b.score)
+        .slice(0, 3);
+
+    if (weakest.length === 0) {
+        return `
+            <div class="goal-card">
+                <h3>💡 Study Recommendations</h3>
+                <p>🌟 Great work! Keep practicing your topics.</p>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="goal-card">
+            <h3>💡 Study Recommendations</h3>
+            <p>Try studying these topics next:</p>
+
+            ${weakest.map(item => `
+                <p>
+                    📖 <strong>${escapeHTML(item.name)}</strong>
+                    (${item.score}%) — Review this lesson and take another quiz.
+                </p>
+            `).join("")}
+        </div>
+    `;
+}
 
 function showProgress() {
 
@@ -2806,6 +3066,16 @@ function showProgress() {
 
 
         ${createProgressChart()}
+
+
+${getSmartAnalytics()}
+
+
+${getWeakTopics()}
+
+${getStudyRecommendations()}
+
+
 
 
         <div class="goal-card">
@@ -3480,4 +3750,17 @@ if (streakButton) {
 }
 
 
-removeOldStudyToolButtons();
+removeOldStudyToolButtons(); 
+document.getElementById("analyticsNav")?.addEventListener("click", function (event) {
+    event.preventDefault();
+
+
+
+showProgress();
+
+
+    document.getElementById("result")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+});
