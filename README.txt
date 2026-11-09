@@ -1,1 +1,0 @@
-Back up your existing studio.js. Replace studio.js in your StudyAI project with this file. Hard refresh Chrome (Command+Shift+R). No server restart required. This update enhances the five analytics cards wherever they appear and preserves the original quiz progress rings.
